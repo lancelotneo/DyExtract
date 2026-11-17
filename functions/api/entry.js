@@ -49,8 +49,11 @@ async function handleParse(request, env) {
     }
     if (!url) return jsonErr('缺少URL参数', 400);
 
+    const debug = new URL(request.url).searchParams.get('debug') === '1';
+    const diagnostics = debug ? [] : null;
     try {
-        const { payload } = await buildParseResponse(url);
+        const { payload } = await buildParseResponse(url, diagnostics);
+        if (debug) payload._diagnostics = diagnostics;
         return Response.json(payload, {
             headers: {
                 'Access-Control-Allow-Origin': '*',
@@ -58,6 +61,15 @@ async function handleParse(request, env) {
             }
         });
     } catch (e) {
+        if (debug) {
+            return Response.json({ error: e.message || '解析失败', diagnostics }, {
+                status: 500,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Cache-Control': 'no-store',
+                }
+            });
+        }
         return jsonErr(e.message || '解析失败', 500);
     }
 }
